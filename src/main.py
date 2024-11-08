@@ -39,7 +39,7 @@ metadata = {
 console = Console()
 
 ## Load the dataset
-c = pd.read_csv("./DATASET.csv", sep=",")
+c = pd.read_csv("hf://datasets/bethgelab/CiteME/CiteME.tsv", sep=",")
 c.set_index("id", inplace=True)
 if metadata["dataset_split"] == "all":
     pass
