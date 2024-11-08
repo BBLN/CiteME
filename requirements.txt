@@ -7,3 +7,5 @@ langchain-huggingface
 pydantic
 selenium
 PyPDF2
+transformers
+bitsandbytes
