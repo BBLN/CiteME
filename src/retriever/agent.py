@@ -147,11 +147,14 @@ class LLMSelfAskAgentPydantic(BaseAgent):
             papers_str += (
                 f"- Paper ID: {paper.paperId}\n"
                 + f"   Title: {paper.title}\n"
-                + f"   Abstract: {paper.abstract}\n"
+                + f"   Abstract: {paper.abstract[:128]}\n"
                 + f"   Citation Count: {paper.citationCount}\n\n"
             )
         if len(papers) == 0:
             papers_str = "No papers were found for the given search query. Please use a different query."
+        else:
+            papers_str = f"Here are the papers found for the given search query:\n\n" + papers_str
+            papers_str += f'Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}'
         return HumanMessage(content=papers_str.strip())
 
     def _read(self, paper_id: str):
@@ -187,7 +190,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         if last_action:
             self.history.append(
                 HumanMessage(
-                    content="WARNING! you've spent all your action tokens. You must use the SelectAction now."
+                    content="WARNING! you've spent all your action tokens. You must use the SelectAction now. Guess the cited paper ID from our past search results."
                 )
             )
         prompt = ChatPromptTemplate.from_messages(self.history)
@@ -208,6 +211,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         return paper_buffer
 
     def __call__(self, excerpt: str, year: str, max_actions=5):
+        self.current_excerpt = excerpt
         message = HumanMessage(content=self.human_intro + "\n\n" + f"{excerpt}")
         for i in range(max_actions):
             response = self._ask_llm(message, last_action=(i == max_actions - 1))
