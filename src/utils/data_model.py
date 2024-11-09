@@ -47,7 +47,7 @@ class ReadAction(BaseModel):
 
 
 class SelectAction(BaseModel):
-    name: Literal["select"] = Field(
+    name: Literal["select_paper"] = Field(
         description="Use this action to select the paper that fits the excerpt."
     )
     paper_id: str = Field(description="The paper id of the paper you want to select")

@@ -20,7 +20,7 @@ import requests
 from PyPDF2 import PdfReader
 from functools import reduce
 from utils.str_matcher import is_similar
-from utils.data_model import Output, OutputSearchOnly
+from utils.data_model import Output, OutputSearchOnly, SelectAction
 
 
 class BaseAgent:
@@ -99,11 +99,18 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         self.source_papers_title: List[str] = []
         self.reset()
 
+    def format_instructions(self):
+        return f"You can use any of the following actions up to 5 times:\n" \
+                'Search by relevance: {"reason": "why", "action": {"name": "search_relevance": "query": "search terms"}}\n' \
+                'Search by citation count: {"reason": "why", "action": {"name": "search_citation_count": "query": "search terms"}}\n' \
+                'Select cited paper: {"reason": "why", "action": {"name": "select_paper", "paper_id": "paper ID"}}\n' \
+                #'Read a paper: {"reason": "why", "action": {"name": "read", "paper_id": "paper id"}}\n' \
+
     def reset(self, source_papers_title: List[str] = []):
         with open(self.prompt_template_path, "r") as f:
             system_prompt = f.read()
         system_prompt = system_prompt.replace(
-            "<FORMAT_INSTRUCTIONS>", self.parser.get_format_instructions()
+            "<FORMAT_INSTRUCTIONS>", self.format_instructions() #self.parser.get_format_instructions()
         )
         if isinstance(self.model, ChatOpenAI) and self.model.model_name.startswith('o1'):
             self.history = [HumanMessage(content=system_prompt)]
@@ -189,7 +196,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         if last_action:
             self.history.append(
                 HumanMessage(
-                    content="WARNING! you've spent all your action tokens. You must use the SelectAction now. Guess the cited paper ID from our past search results."
+                    content="WARNING! you've spent all your action tokens. You must use the select_paper action now. Guess the cited paper ID from our past search results."
                 )
             )
         prompt = ChatPromptTemplate.from_messages(self.history)
@@ -223,7 +230,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
                     message = self._read(response.action.paper_id)
                 except PaperNotFoundError as e:
                     message = HumanMessage(content=f"{e}")
-            elif response.action.name == "select":
+            elif response.action.name == SelectAction.name:
                 try:
                     return self._select(response.action.paper_id)
                 except PaperNotFoundError as e:
