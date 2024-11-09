@@ -9,3 +9,5 @@ selenium
 PyPDF2
 transformers
 bitsandbytes
+pandas
+requests

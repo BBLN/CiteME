@@ -13,6 +13,7 @@ from datetime import datetime
 from time import time
 from rich.progress import track
 from retriever.llm_base import DEFAULT_TEMPERATURE
+import traceback
 
 # -- Modify the following variables as needed --
 TITLE_SEPERATOR = "[TITLE_SEPARATOR]"
@@ -20,12 +21,12 @@ RESULT_FILE_NAME = f"few-shot-search-4o.json"
 INCREMENTAL_SAVE = True
 
 metadata = {
-    "model": "gpt-4o",
+    "model": "phi",
     "temperature": DEFAULT_TEMPERATURE,
     "executor": "LLMSelfAskAgentPydantic",
     "search_provider": "SemanticScholarSearchProvider",
-    "prompt_name": "few_shot_search",  # See prompt names in retriever/prompt_templates
-    "actions": "search_relevance,search_citation_count,read,select",
+    "prompt_name": "one_shot_search",  # See prompt names in retriever/prompt_templates
+    "actions": "search_relevance,search_citation_count,select",
     "search_limit": 10,
     "threshold": 0.8,
     "execution_date": datetime.now().isoformat(),
@@ -39,7 +40,7 @@ metadata = {
 console = Console()
 
 ## Load the dataset
-c = pd.read_csv("hf://datasets/bethgelab/CiteME/CiteME.tsv", sep=",")
+c = pd.read_csv("hf://datasets/bethgelab/CiteME/CiteME.tsv", sep="\t")
 c.set_index("id", inplace=True)
 if metadata["dataset_split"] == "all":
     pass
@@ -129,6 +130,8 @@ for cid, citation in track(
         result_data["status"] = "error"
         result_data["error"] = str(e)
         console.log(f"[red]{cid:3d}: {target_titles[0]}\n     [bold]{e}")
+        print(traceback.format_exc())
+        print(agent.get_history())
 
     result_data["duration"] = time() - start_time
     result_data["papers"] = agent.get_paper_buffer()
