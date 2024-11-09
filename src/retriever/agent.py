@@ -20,7 +20,7 @@ import requests
 from PyPDF2 import PdfReader
 from functools import reduce
 from utils.str_matcher import is_similar
-from utils.data_model import Output, OutputSearchOnly, SelectAction
+from utils.data_model import Output, OutputSearchOnly
 
 
 class BaseAgent:
@@ -230,7 +230,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
                     message = self._read(response.action.paper_id)
                 except PaperNotFoundError as e:
                     message = HumanMessage(content=f"{e}")
-            elif response.action.name == SelectAction.name:
+            elif response.action.name == "select_paper":
                 try:
                     return self._select(response.action.paper_id)
                 except PaperNotFoundError as e:
