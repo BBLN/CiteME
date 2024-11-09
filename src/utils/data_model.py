@@ -1,19 +1,18 @@
-from pydantic import BaseModel as PydanticBaseModel
-from langchain.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 from typing import List, Literal
 
 
-class PaperAuthor(PydanticBaseModel):
+class PaperAuthor(BaseModel):
     authorId: str | None
     name: str
 
 
-class OpenAccessPdf(PydanticBaseModel):
+class OpenAccessPdf(BaseModel):
     url: str
     status: str
 
 
-class PaperSearchResult(PydanticBaseModel):
+class PaperSearchResult(BaseModel):
     paperId: str | None
     title: str
     authors: List[PaperAuthor]
