@@ -32,6 +32,7 @@ def get_model_by_name(model_name: str, temperature: float = DEFAULT_TEMPERATURE)
             pipeline_kwargs=dict(
                 max_new_tokens=512,
                 do_sample=False,
+                return_full_text=False,
             ),
             model_kwargs={
                 'quantization_config': quantization_config
