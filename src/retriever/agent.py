@@ -196,7 +196,8 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         if last_action:
             self.history.append(
                 HumanMessage(
-                    content="WARNING! you've spent all your action tokens. You must use the select_paper action now. Guess the cited paper ID from our past search results."
+                    content="WARNING! you've spent all your action tokens. You must use the select_paper action now. Guess the cited paper ID from our past search results.\n" \
+                    'Action format: {"reason": "why", "action": {"name": "select_paper", "paper_id": "paper ID"}}'
                 )
             )
         prompt = ChatPromptTemplate.from_messages(self.history)
