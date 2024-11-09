@@ -27,19 +27,28 @@ class SemanticScholarSearchProvider(SearchProvider):
         self.s2api = SemanticScholarAPI()
 
     def citation_count_search(
-        self, query: str, year: str | None, max_search_limit: int = 100
+        self, query: str, year: str | None, max_search_limit: int = 100, bulk: bool = False
     ) -> List[PaperSearchResult]:
         papers: List[PaperSearchResult] = []
-        results = self.s2api.bulk_search(
-            query,
-            self.fields,
-            self.fieldsOfStudy,
-            year=year,
-            only_open_access=self.only_open_access,
-        )
-        papers += [PaperSearchResult(**paper) for paper in results["data"]]
+        if bulk:
+            tmp_papers = self.s2api.bulk_search(query, self.fields, self.fieldsOfStudy)
+            papers += [PaperSearchResult(**paper) for paper in tmp_papers["data"]]
+        else:
+            for offset in range(0, max_search_limit, 100):
+                tmp_papers = self.s2api.relevance_search(
+                    query,
+                    self.fields,
+                    self.fieldsOfStudy,
+                    year=year,
+                    limit=min(100, max_search_limit - offset),
+                    offset=offset,
+                    only_open_access=self.only_open_access,
+                )
+                if "data" not in tmp_papers:
+                    break
+                papers += [PaperSearchResult(**paper) for paper in tmp_papers["data"]]
 
-        #papers = sorted(papers, key=lambda x: x.citationCount, reverse=True)
+        papers = sorted(papers, key=lambda x: x.citationCount, reverse=True)
         return papers[: self.limit]
 
     def __call__(self, query: str, year: str | None = None) -> List[PaperSearchResult]:
