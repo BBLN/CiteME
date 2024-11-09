@@ -187,7 +187,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         if last_action:
             self.history.append(
                 HumanMessage(
-                    content="Caution, you have reached the maximum number of actions. Please select a paper."
+                    content="WARNING! you've spent all your action tokens. You must use the SelectAction now."
                 )
             )
         prompt = ChatPromptTemplate.from_messages(self.history)
@@ -267,7 +267,7 @@ class LLMNoSearch(BaseAgent):
 
     def __call__(self, excerpt: str, year: str = "", max_actions=5):
         message = HumanMessage(
-            content="You are now given an excerpt. Find me the paper cited in the excerpt. Only return the paper title, nothing else.\n\n"
+            content="You are now given an excerpt. Find me the paper cited in the excerpt. You have f{max_actions} action tokens, then you must select paper ID.\n\n"
             + f"{excerpt}"
         )
         response = self._ask_llm(message)

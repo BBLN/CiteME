@@ -12,3 +12,6 @@ We should search for "LPIPS metric":
         "query": "LPIPS metric"
     }
 }
+
+Only respond with single line JSON, keep the reason short and consice. Avoid any punctation in query, especially periods and hyphens.
+Rare terms like LPIPS usually gives more focused search results.
