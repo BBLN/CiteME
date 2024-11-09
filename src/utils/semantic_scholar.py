@@ -8,7 +8,10 @@ from selenium.webdriver.common.by import By
 import urllib.parse
 from typing import Literal
 from time import time
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
+class HTTPRateLimitException(Exception):
+    pass
 
 class SemanticScholarAPI:
     """See https://github.com/allenai/s2-folks/blob/main/examples/python/find_and_recommend_papers/find_papers.py"""
@@ -23,10 +26,21 @@ class SemanticScholarAPI:
             return {}
         return {"X-API-KEY": self.api_key}
     
+    @retry(
+        retry=retry_if_exception_type(HTTPRateLimitException),
+        stop=stop_after_attempt(3), 
+        wait=wait_fixed(20)
+    )
+    def _get(self, *args, **kwargs):
+        response = requests.get(*args, **kwargs)
+        if response.status_code == 429:
+            raise HTTPRateLimitException("Rate limit exceeded")
+        return response
+    
     def search(
         self, query, fields="paperId,title,authors,venue,year", limit=10, offest=0
     ):
-        response = requests.get(
+        response = self._get(
             f"{self.base_url}/search",
             headers=self._get_headers(),
             params={"query": query, "limit": limit, "fields": fields},
@@ -34,7 +48,7 @@ class SemanticScholarAPI:
         return response.json()
 
     def autocomplete(self, query):
-        response = requests.get(
+        response = self._get(
             f"{self.base_url}/autocomplete",
             headers=self._get_headers(),
             params={"query": query},
@@ -61,7 +75,7 @@ class SemanticScholarAPI:
             params["fieldsOfStudy"] = fieldsOfStudy
         if only_open_access:
             params["openAccessPdf"] = ""
-        response = requests.get(
+        response = self._get(
             f"{self.base_url}/search/bulk",
             headers=self._get_headers(),
             params=params,
@@ -90,7 +104,7 @@ class SemanticScholarAPI:
         if only_open_access:
             params["openAccessPdf"] = ""
 
-        response = requests.get(
+        response = self._get(
             f"{self.base_url}/search",
             headers=self._get_headers(),
             params=params,
@@ -102,7 +116,7 @@ class SemanticScholarAPI:
         paper_id,
         fields: str = "paperId,title,authors,venue,year,citationCount,abstract,openAccessPdf",
     ):
-        response = requests.get(
+        response = self._get(
             f"{self.base_url}/{paper_id}",
             headers=self._get_headers(),
             params={"fields": fields},
