@@ -150,7 +150,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
                 papers_str += f"\tAbstract: {paper.abstract[:128]}\n"
             papers_str += f"\tCitation Count: {paper.citationCount}\n\n"
         if len(papers) == 0:
-            papers_str = "No papers were found for the given search query. Please use a different query."
+            papers_str = "No papers were found for the given search query. You can try different query or action."
         else:
             papers_str = f"Here are the papers found for the given search query:\n\n" + papers_str
             papers_str += f'Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}'
