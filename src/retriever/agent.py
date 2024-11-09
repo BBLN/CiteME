@@ -144,12 +144,11 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         self.paper_buffer.append(papers)
         papers_str = ""
         for paper in papers:
-            papers_str += (
-                f"- Paper ID: {paper.paperId}\n"
-                + f"   Title: {paper.title}\n"
-                + f"   Abstract: {paper.abstract[:128]}\n"
-                + f"   Citation Count: {paper.citationCount}\n\n"
-            )
+            papers_str += f"- Paper ID: {paper.paperId}\n"
+            papers_str += f"\tTitle: {paper.title}\n"
+            if paper.abstract:
+                papers_str += f"\tAbstract: {paper.abstract[:128]}\n"
+            papers_str += f"\tCitation Count: {paper.citationCount}\n\n"
         if len(papers) == 0:
             papers_str = "No papers were found for the given search query. Please use a different query."
         else:
