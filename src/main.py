@@ -20,6 +20,7 @@ parser = argparse.ArgumentParser(description="Run few-shot search on CiteMe data
 parser.add_argument("--prompt_name", type=str, default="one_shot_search", help="Prompt template")
 parser.add_argument("--result_file", type=str, default="few-shot-search-4o.json")
 parser.add_argument("--max_actions", type=int, default=15)
+parser.add_argument("--selenium", action="store_true", default=False)
 args = parser.parse_args()
 
 # -- Modify the following variables as needed --
@@ -27,11 +28,14 @@ TITLE_SEPERATOR = "[TITLE_SEPARATOR]"
 RESULT_FILE_NAME = args.result_file
 INCREMENTAL_SAVE = True
 
+search_provider = "SemanticScholarSearchProvider"
+if args.selenium:
+    search_provider = "SemanticScholarWebSearchProvider"
 metadata = {
     "model": "phi",
     "temperature": DEFAULT_TEMPERATURE,
     "executor": "LLMSelfAskAgentPydantic",
-    "search_provider": "SemanticScholarSearchProvider",
+    "search_provider": search_provider,
     "prompt_name": args.prompt_name,  # See prompt names in retriever/prompt_templates
     "actions": "search_relevance,search_citation_count,select",
     "search_limit": 10,
@@ -109,6 +113,7 @@ for cid, citation in track(
         "id": cid,
         "cited_paper_titles": target_titles,
         "excerpt": citation_text,
+        "split": citation["split"],
     }
     try:
         selection = agent(citation_text, f"{year}", max_actions=metadata["max_actions"])
