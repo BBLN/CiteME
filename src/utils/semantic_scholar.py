@@ -14,16 +14,21 @@ class SemanticScholarAPI:
     """See https://github.com/allenai/s2-folks/blob/main/examples/python/find_and_recommend_papers/find_papers.py"""
 
     def __init__(self, api_key=os.environ.get("S2_API_KEY")) -> None:
-        assert api_key, "API key is required"
+        #assert api_key, "API key is required"
         self.base_url = "https://api.semanticscholar.org/graph/v1/paper"
         self.api_key = api_key
 
+    def _get_headers(self):
+        if not self.api_key:
+            return {}
+        return {"X-API-KEY": self.api_key}
+    
     def search(
         self, query, fields="paperId,title,authors,venue,year", limit=10, offest=0
     ):
         response = requests.get(
             f"{self.base_url}/search",
-            headers={"X-API-KEY": self.api_key},
+            headers=self._get_headers(),
             params={"query": query, "limit": limit, "fields": fields},
         )
         return response.json()
@@ -31,7 +36,7 @@ class SemanticScholarAPI:
     def autocomplete(self, query):
         response = requests.get(
             f"{self.base_url}/autocomplete",
-            headers={"X-API-KEY": self.api_key},
+            headers=self._get_headers(),
             params={"query": query},
         )
         return response.json()
@@ -58,7 +63,7 @@ class SemanticScholarAPI:
             params["openAccessPdf"] = ""
         response = requests.get(
             f"{self.base_url}/search/bulk",
-            headers={"X-API-KEY": self.api_key},
+            headers=self._get_headers(),
             params=params,
         )
         return response.json()
@@ -87,7 +92,7 @@ class SemanticScholarAPI:
 
         response = requests.get(
             f"{self.base_url}/search",
-            headers={"X-API-KEY": self.api_key},
+            headers=self._get_headers(),
             params=params,
         )
         return response.json()
@@ -99,7 +104,7 @@ class SemanticScholarAPI:
     ):
         response = requests.get(
             f"{self.base_url}/{paper_id}",
-            headers={"X-API-KEY": self.api_key},
+            headers=self._get_headers(),
             params={"fields": fields},
         )
         return response.json()
