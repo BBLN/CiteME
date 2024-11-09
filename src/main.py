@@ -14,10 +14,17 @@ from time import time
 from rich.progress import track
 from retriever.llm_base import DEFAULT_TEMPERATURE
 import traceback
+import argparse
+
+parser = argparse.ArgumentParser(description="Run few-shot search on CiteMe dataset")
+parser.add_argument("--prompt_name", type=str, default="one_shot_search", help="Prompt template")
+parser.add_argument("--result_file", type=str, default="few-shot-search-4o.json")
+parser.add_argument("--max_actions", type=int, default=15)
+args = parser.parse_args()
 
 # -- Modify the following variables as needed --
 TITLE_SEPERATOR = "[TITLE_SEPARATOR]"
-RESULT_FILE_NAME = f"few-shot-search-4o.json"
+RESULT_FILE_NAME = args.result_file
 INCREMENTAL_SAVE = True
 
 metadata = {
@@ -25,7 +32,7 @@ metadata = {
     "temperature": DEFAULT_TEMPERATURE,
     "executor": "LLMSelfAskAgentPydantic",
     "search_provider": "SemanticScholarSearchProvider",
-    "prompt_name": "one_shot_search",  # See prompt names in retriever/prompt_templates
+    "prompt_name": args.prompt_name,  # See prompt names in retriever/prompt_templates
     "actions": "search_relevance,search_citation_count,select",
     "search_limit": 10,
     "threshold": 0.8,
@@ -33,7 +40,7 @@ metadata = {
     "only_open_access": False,
     "dataset_split": "all",
     "use_web_search": False,
-    "max_actions": 15,
+    "max_actions": args.max_actions,
 }
 # -- NO USER EDITABLE CODE BELOW THIS LINE --
 
