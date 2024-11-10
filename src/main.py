@@ -171,7 +171,7 @@ for cid, citation in track(
         }
 
     results.append(result_data)
-    run.log({'split': result_data["split"], 'correct': result_data["correct"], 'is_in_search': result_data["is_in_search"]})
+    run.log({'split': result_data["split"], 'correct': result_data["is_correct"], 'is_in_search': result_data["is_in_search"]})
     if INCREMENTAL_SAVE:
         with open(RESULT_FILE_NAME, "w") as f:
             json.dump({"metadata": metadata, "results": results}, f, indent=4)
