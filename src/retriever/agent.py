@@ -82,6 +82,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         prompt_name: str = "default",
         pydantic_object: Type[Output] | Type[OutputSearchOnly] = Output,
     ) -> None:
+        self.search_with_year = False
         self.prompt_template_path = self.prompts[prompt_name][0]
         self.human_intro = self.human_intros[self.prompts[prompt_name][1]]
         self.model = get_model_by_name(model_name, temperature=temperature)
@@ -133,10 +134,14 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         )
 
     def _search_relevance(self, query: str, year: str):
+        if not self.search_with_year:
+            year = None
         papers = self.search_provider(query, year)
         return self.__process_search(papers)
 
     def _search_citation_count(self, query: str, year: str):
+        if not self.search_with_year:
+            year = None
         papers = self.search_provider.citation_count_search(query, year)
         return self.__process_search(papers)
 
@@ -154,13 +159,14 @@ class LLMSelfAskAgentPydantic(BaseAgent):
             papers_str += f"- Paper ID: {paper.paperId}\n"
             papers_str += f"\tTitle: {paper.title}\n"
             if paper.abstract:
-                papers_str += f"\tAbstract: {paper.abstract[:128]}\n"
+                papers_str += f"\tAbstract: {paper.abstract[:256]}\n"
             papers_str += f"\tCitation Count: {paper.citationCount}\n\n"
         if len(papers) == 0:
-            papers_str = "No papers were found for the given search query. You can try different query or action."
+            papers_str = f"No papers were found for the given search query. You can try different query or action like relevance or citation search. Your'e encouraged to try new terms. Reminder, the excerpt was {self.current_excerpt}"
         else:
             papers_str = f"Here are the papers found for the given search query:\n\n" + papers_str
             papers_str += f'Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}'
+            papers_str += "\nYou're also encouraged to try other queries or searching by citations / relevance for best accuracy!"
         return HumanMessage(content=papers_str.strip())
 
     def _read(self, paper_id: str):
@@ -200,9 +206,11 @@ class LLMSelfAskAgentPydantic(BaseAgent):
                     'Action format: {"reason": "why", "action": {"name": "select_paper", "paper_id": "paper ID"}}'
                 )
             )
-        prompt = ChatPromptTemplate.from_messages(self.history)
+        prompt_prefix = '{"reason":'
+        prompt = ChatPromptTemplate.from_messages(self.history + [AIMessage(content=prompt_prefix)])
         pipeline = prompt | self.model
-        response: BaseMessage = pipeline.invoke({})
+        response: BaseMessage = pipeline.invoke({}, continue_final_message=True)
+        response.content = prompt_prefix + response.content
         self.history.append(response)
         # ignore input before first '{' to avoid parsing errors
         response = AIMessage(

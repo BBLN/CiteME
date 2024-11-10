@@ -27,9 +27,17 @@ def get_model_by_name(model_name: str, temperature: float = DEFAULT_TEMPERATURE)
             bnb_4bit_compute_dtype="float16",
             bnb_4bit_use_double_quant=True,
         )
+        
         model_id="microsoft/Phi-3.5-mini-instruct"
         tokenizer = AutoTokenizer.from_pretrained(model_id)
-        model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=quantization_config)
+
+        model_kwargs = {}
+        if '4bit' in model_name:
+            model_kwargs['quantization_config'] = quantization_config
+
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id, 
+            **model_kwargs)
         model = PeftModel.from_pretrained(model, "../NLP-project/lora-query-generator-microsoft-phi-3.5-mini-instruct_20241109_003912")
         pipe = pipeline(
             "text-generation", 
@@ -41,7 +49,20 @@ def get_model_by_name(model_name: str, temperature: float = DEFAULT_TEMPERATURE)
         )
         llm = HuggingFacePipeline(pipeline=pipe)
 
-        return ChatHuggingFace(llm=llm)
+        class ChatHuggingFacePhi(ChatHuggingFace):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+
+            def _to_chat_prompt(self, messages):
+                if not messages:
+                    raise ValueError("At least one HumanMessage must be provided!")
+
+                messages_dicts = [self._to_chatml_format(m) for m in messages]
+
+                return self.tokenizer.apply_chat_template(
+                    messages_dicts, tokenize=False, continue_final_message=True
+                )
+        return ChatHuggingFacePhi(llm=llm)
     if "llama" in model_name.lower() or "phi" in model_name.lower() or "mistral" in model_name.lower():
         return ChatTogether(
             # together_api_key="YOUR_API_KEY",

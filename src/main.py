@@ -15,13 +15,17 @@ from rich.progress import track
 from retriever.llm_base import DEFAULT_TEMPERATURE
 import traceback
 import argparse
+import wandb
 
 parser = argparse.ArgumentParser(description="Run few-shot search on CiteMe dataset")
 parser.add_argument("--prompt_name", type=str, default="one_shot_search", help="Prompt template")
 parser.add_argument("--result_file", type=str, default="few-shot-search-4o.json")
 parser.add_argument("--max_actions", type=int, default=15)
 parser.add_argument("--selenium", action="store_true", default=False)
+parser.add_argument("--model", type=str, default="phi")
 args = parser.parse_args()
+
+run = wandb.init(project="CiteME", config=args)
 
 # -- Modify the following variables as needed --
 TITLE_SEPERATOR = "[TITLE_SEPARATOR]"
@@ -32,7 +36,7 @@ search_provider = "SemanticScholarSearchProvider"
 if args.selenium:
     search_provider = "SemanticScholarWebSearchProvider"
 metadata = {
-    "model": "phi",
+    "model": args.model,
     "temperature": DEFAULT_TEMPERATURE,
     "executor": "LLMSelfAskAgentPydantic",
     "search_provider": search_provider,
@@ -167,10 +171,20 @@ for cid, citation in track(
         }
 
     results.append(result_data)
-
+    run.log({'split': result_data["split"], 'correct': result_data["correct"], 'is_in_search': result_data["is_in_search"]})
     if INCREMENTAL_SAVE:
         with open(RESULT_FILE_NAME, "w") as f:
             json.dump({"metadata": metadata, "results": results}, f, indent=4)
 
 with open(RESULT_FILE_NAME, "w") as f:
     json.dump({"metadata": metadata, "results": results}, f, indent=4)
+
+run.log_artifact(RESULT_FILE_NAME)
+
+metrics_table = wandb.Table(columns=["split", "correct", "total", "correct_search"])
+for split in ["all", "train", "test"]:
+    metrics_table.add_data(split,
+        sum(r["is_correct"] for r in results if r["split"] == split),
+        len([r for r in results if r["split"] == split]),
+        sum(r["is_in_search"] for r in results if r["split"] == split))
+run.finish()
