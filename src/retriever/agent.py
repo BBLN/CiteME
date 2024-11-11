@@ -165,9 +165,10 @@ class LLMSelfAskAgentPydantic(BaseAgent):
             papers_str = f"No papers were found for the given search query. You can try different query or action like relevance or citation search. Your'e encouraged to try new terms. Reminder, the excerpt was {self.current_excerpt}"
         else:
             papers_str = f"Here are the papers found for the given search query:\n\n" + papers_str
-            papers_str += f'Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}'
-            papers_str += "\nYou're also encouraged to try other queries or searching by citations / relevance for best accuracy!"
-        return HumanMessage(content=papers_str.strip())
+            #papers_str += f'Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}'
+            #papers_str += "\nNow try other query searching by citations / relevance for best accuracy!"
+        self.history.append(HumanMessage(content=papers_str.strip()))
+        return HumanMessage(content="You should try validating with another query searching by citations / relevance for best accuracy!\nCan you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}")
 
     def _read(self, paper_id: str):
         paper = self.__find_paper_by_id(paper_id)
