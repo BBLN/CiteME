@@ -113,7 +113,7 @@ eval_table = wandb.Table(columns=["split","correct","in_search"])
 for cid, citation in track(
     c.iterrows(), description="Processing citations", total=len(c), console=console
 ):
-    agent.reset([citation["source_paper_title"]])
+    agent.reset([citation["source_paper_title"]], max_actions=metadata["max_actions"])
     
     start_time = time()
     citation_text = citation["excerpt"]
@@ -126,7 +126,7 @@ for cid, citation in track(
         "split": citation["split"],
     }
     try:
-        selection = agent(citation_text, f"{year}", max_actions=metadata["max_actions"])
+        selection = agent(citation_text, f"{year}")
         result_data["selected"] = selection.model_dump()
         is_in_search = find_multi_match_psr(
             sum(agent.paper_buffer, []), target_titles, threshold=metadata["threshold"]

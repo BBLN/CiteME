@@ -45,7 +45,8 @@ def get_model_by_name(model_name: str, temperature: float = DEFAULT_TEMPERATURE)
             model=model, 
             tokenizer=tokenizer,
             max_new_tokens=512,
-            do_sample=False,
+            do_sample=True,
+            top_p=0.6,
             return_full_text=False,
         )
         llm = HuggingFacePipeline(pipeline=pipe)
@@ -61,7 +62,10 @@ def get_model_by_name(model_name: str, temperature: float = DEFAULT_TEMPERATURE)
                 messages_dicts = [self._to_chatml_format(m) for m in messages]
 
                 return self.tokenizer.apply_chat_template(
-                    messages_dicts, tokenize=False, continue_final_message=True
+                    messages_dicts, 
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    #continue_final_message=True,
                 )
         return ChatHuggingFacePhi(llm=llm)
     if "llama" in model_name.lower() or "phi" in model_name.lower() or "mistral" in model_name.lower():

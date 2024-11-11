@@ -101,19 +101,20 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         self.reset()
 
     def format_instructions(self):
-        return f"You can use any of the following actions up to 5 times:\n" \
+        return f"You can use any of the following actions up to {self.max_actions} times:\n" \
                 'Search by relevance: {"reason": "why", "action": {"name": "search_relevance": "query": "search terms"}}\n' \
                 'Search by citation count: {"reason": "why", "action": {"name": "search_citation_count": "query": "search terms"}}\n' \
                 'Select cited paper: {"reason": "why", "action": {"name": "select_paper", "paper_id": "paper ID"}}\n' \
                 #'Read a paper: {"reason": "why", "action": {"name": "read", "paper_id": "paper id"}}\n' \
 
-    def reset(self, source_papers_title: List[str] = []):
+    def reset(self, source_papers_title: List[str] = [], max_actions=5):
+        self.max_actions = max_actions
         with open(self.prompt_template_path, "r") as f:
             system_prompt = f.read()
         system_prompt = system_prompt.replace(
             "<FORMAT_INSTRUCTIONS>", self.format_instructions() #self.parser.get_format_instructions()
         )
-        if isinstance(self.model, ChatOpenAI) and self.model.model_name.startswith('o1'):
+        if (isinstance(self.model, ChatOpenAI) and self.model.model_name.startswith('o1')) or self.model.model_name.startswith('phi'):
             self.history = [HumanMessage(content=system_prompt)]
         else:
             self.history = [SystemMessage(content=system_prompt)]
@@ -162,13 +163,15 @@ class LLMSelfAskAgentPydantic(BaseAgent):
                 papers_str += f"\tAbstract: {paper.abstract[:256]}\n"
             papers_str += f"\tCitation Count: {paper.citationCount}\n\n"
         if len(papers) == 0:
-            papers_str = f"No papers were found for the given search query. You can try different query or action like relevance or citation search. Your'e encouraged to try new terms. Reminder, the excerpt was {self.current_excerpt}"
+            papers_str = f"No papers were found for the given search query. You can try different query or action like relevance or citation search. Your'e encouraged to try new terms. Reminder, the excerpt was {self.current_excerpt}\n\nStart with broader terms and then narrow down if needed."
         else:
             papers_str = f"Here are the papers found for the given search query:\n\n" + papers_str
             #papers_str += f'Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}'
             #papers_str += "\nNow try other query searching by citations / relevance for best accuracy!"
         self.history.append(HumanMessage(content=papers_str.strip()))
-        return HumanMessage(content="You should try validating with another query searching by citations / relevance for best accuracy!\nCan you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}")
+        return HumanMessage(content=f"You should try validating with another query searching by citations / relevance for best accuracy!\n" \
+                            "Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}\n\n" \
+                            "Respond with *exactly* one JSON action. Try different action or change the search terms!")
 
     def _read(self, paper_id: str):
         paper = self.__find_paper_by_id(paper_id)
@@ -210,14 +213,17 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         prompt_prefix = '{"reason":'
         prompt = ChatPromptTemplate.from_messages(self.history + [AIMessage(content=prompt_prefix)])
         pipeline = prompt | self.model
-        response: BaseMessage = pipeline.invoke({}, continue_final_message=True)
+        response: BaseMessage = pipeline.invoke({})
         response.content = prompt_prefix + response.content
         self.history.append(response)
         # ignore input before first '{' to avoid parsing errors
         response = AIMessage(
             content=response.content[response.content.find("{") :].strip()
         )
-        return self.parser.invoke(response)
+        try:
+            return self.parser.invoke(response)
+        except:
+            return None
 
     def get_paper_buffer(self):
         paper_buffer = []
@@ -226,12 +232,15 @@ class LLMSelfAskAgentPydantic(BaseAgent):
             paper_buffer.append(tmp_buffer)
         return paper_buffer
 
-    def __call__(self, excerpt: str, year: str, max_actions=5):
+    def __call__(self, excerpt: str, year: str):
         self.current_excerpt = excerpt
         message = HumanMessage(content=self.human_intro + "\n\n" + f"{excerpt}")
+        max_actions = self.max_actions
         for i in range(max_actions):
             response = self._ask_llm(message, last_action=(i == max_actions - 1))
-            if response.action.name == "search_relevance":
+            if response is None:
+                message = HumanMessage(content="The response could not be parsed, please try a valid JSON action.")
+            elif response.action.name == "search_relevance":
                 message = self._search_relevance(response.action.query, year)
             elif response.action.name == "search_citation_count":
                 message = self._search_citation_count(response.action.query, year)
