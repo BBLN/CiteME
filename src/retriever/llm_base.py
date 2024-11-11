@@ -38,7 +38,8 @@ def get_model_by_name(model_name: str, temperature: float = DEFAULT_TEMPERATURE)
         model = AutoModelForCausalLM.from_pretrained(
             model_id, 
             **model_kwargs)
-        model = PeftModel.from_pretrained(model, "../NLP-project/lora-query-generator-microsoft-phi-3.5-mini-instruct_20241109_003912")
+        if 'peft' in model_name:
+            model = PeftModel.from_pretrained(model, "../NLP-project/lora-query-generator-microsoft-phi-3.5-mini-instruct_20241111_100543")
         pipe = pipeline(
             "text-generation", 
             model=model, 
