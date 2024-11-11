@@ -16,6 +16,7 @@ from retriever.llm_base import DEFAULT_TEMPERATURE
 import traceback
 import argparse
 import wandb
+import os
 
 parser = argparse.ArgumentParser(description="Run few-shot search on CiteMe dataset")
 parser.add_argument("--prompt_name", type=str, default="one_shot_search", help="Prompt template")
@@ -25,7 +26,8 @@ parser.add_argument("--selenium", action="store_true", default=False)
 parser.add_argument("--model", type=str, default="phi")
 args = parser.parse_args()
 
-run = wandb.init(project="CiteME", config=args)
+slurm_job_id = os.environ.get("SLURM_JOB_ID")
+run = wandb.init(project="CiteME", config=args, group=f"{slurm_job_id}")
 
 # -- Modify the following variables as needed --
 TITLE_SEPERATOR = "[TITLE_SEPARATOR]"
@@ -104,6 +106,10 @@ console.log(f"PROMPT:         [bold green]{metadata['prompt_name']}")
 console.log(f"ACTIONS:        [bold blue]{metadata['actions']}")
 
 results = []
+total_citations = 0
+total_correct = 0
+total_in_search = 0
+eval_table = wandb.Table(columns=["split","correct","in_search"])
 for cid, citation in track(
     c.iterrows(), description="Processing citations", total=len(c), console=console
 ):
@@ -171,10 +177,27 @@ for cid, citation in track(
         }
 
     results.append(result_data)
-    run.log({'split': result_data["split"], 'correct': result_data["is_correct"], 'is_in_search': result_data["is_in_search"]})
+    eval_table.add_data(result_data["split"], result_data["is_correct"], result_data["is_in_search"])
+    if result_data["is_correct"]:
+        total_correct += 1
+    if result_data["is_in_search"]:
+        total_in_search += 1
+    total_citations += 1
+    run.log({
+             'total_citations': total_citations, 
+             'total_correct': total_correct, 
+             'total_in_search': total_in_search, 
+             'citations': 1, 'correct': int(result_data["is_correct"]), 'in_search': 1 if result_data["is_in_search"] else 0,
+             'split': result_data["split"],
+             'accuracy': float(total_correct/total_citations)})
     if INCREMENTAL_SAVE:
         with open(RESULT_FILE_NAME, "w") as f:
             json.dump({"metadata": metadata, "results": results}, f, indent=4)
+
+# summary metrisc
+run.summary["correct"] = sum(r["is_correct"] for r in results)
+run.summary["total"] = len(results)
+run.summary["correct_search"] = sum(not not r["is_in_search"] for r in results)
 
 with open(RESULT_FILE_NAME, "w") as f:
     json.dump({"metadata": metadata, "results": results}, f, indent=4)
@@ -186,5 +209,5 @@ for split in ["all", "train", "test"]:
     metrics_table.add_data(split,
         sum(r["is_correct"] for r in results if r["split"] == split),
         len([r for r in results if r["split"] == split]),
-        sum(r["is_in_search"] for r in results if r["split"] == split))
-run.finish()
+        sum(r["is_in_search"] for r in results if r["split"] == split and r["is_in_search"]))
+run.log({'metrics': metrics_table, 'eval': eval_table})
