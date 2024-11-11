@@ -85,6 +85,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         self.search_with_year = False
         self.prompt_template_path = self.prompts[prompt_name][0]
         self.human_intro = self.human_intros[self.prompts[prompt_name][1]]
+        self.model_name = model_name.lower()
         self.model = get_model_by_name(model_name, temperature=temperature)
         print("Using model:", self.model)
         self.parser = PydanticOutputParser(pydantic_object=pydantic_object)
@@ -114,7 +115,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         system_prompt = system_prompt.replace(
             "<FORMAT_INSTRUCTIONS>", self.format_instructions() #self.parser.get_format_instructions()
         )
-        if (isinstance(self.model, ChatOpenAI) and self.model.model_name.startswith('o1')) or self.model.model_name.startswith('phi'):
+        if (isinstance(self.model, ChatOpenAI) and self.model.model_name.startswith('o1')) or self.model_name.startswith('phi'):
             self.history = [HumanMessage(content=system_prompt)]
         else:
             self.history = [SystemMessage(content=system_prompt)]
@@ -138,15 +139,15 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         if not self.search_with_year:
             year = None
         papers = self.search_provider(query, year)
-        return self.__process_search(papers)
+        return self.__process_search(papers, "search_relevance")
 
     def _search_citation_count(self, query: str, year: str):
         if not self.search_with_year:
             year = None
         papers = self.search_provider.citation_count_search(query, year)
-        return self.__process_search(papers)
+        return self.__process_search(papers, "search_citation_count")
 
-    def __process_search(self, papers: List[PaperSearchResult]):
+    def __process_search(self, papers: List[PaperSearchResult], prev_action):
         filtered_papers: List[PaperSearchResult] = papers
         for paper in papers:
             for source_paper_title in self.source_papers_title:
@@ -171,7 +172,9 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         self.history.append(HumanMessage(content=papers_str.strip()))
         return HumanMessage(content=f"You should try validating with another query searching by citations / relevance for best accuracy!\n" \
                             "Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}\n\n" \
-                            "Respond with *exactly* one JSON action. Try different action or change the search terms!")
+                            "You must try new action or change the search terms! You can use only single JSON action without any other text. More than one JSON is invalid and will be ignored.\n" \
+                            f"You should try {"search_citation_count" if prev_action == "search_relevance" else "search_relevance"} next time.")
+                            #"Respond with *exactly* one JSON action. Try different action or change the search terms!")
 
     def _read(self, paper_id: str):
         paper = self.__find_paper_by_id(paper_id)
