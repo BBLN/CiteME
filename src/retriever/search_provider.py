@@ -1,7 +1,8 @@
 from utils.semantic_scholar import SemanticScholarAPI, SemanticScholarWebSearch
 from utils import PaperSearchResult
 from typing import List
-
+from pinecone_db import get_pinecone_client, get_or_create_index
+from specter_embedding import Specter2AdhocQuery
 
 class SearchProvider:
     def __call__(self, search_term: str, year: str) -> List[PaperSearchResult]:
@@ -117,3 +118,43 @@ class SemanticScholarWebSearchProvider(SearchProvider):
         papers = [PaperSearchResult(**paper) for paper in papers]
         return papers
 
+class RAGProvider(SearchProvider):
+    def __init__(
+        self,
+        index_name="semanticscholar-index-specter2-10-22-2024"
+    ):
+        self.embedding_model = Specter2AdhocQuery()
+        self.pc = get_pinecone_client()
+        self.index = get_or_create_index(self.pc, index_name, self.embedding_model.embedding_dim())
+
+    def _embed_query(self, query: str):
+        return self.embedding_model.embed(query).squeeze()
+    
+    def _query_index(self, query: str, top_k: int = 10):
+        query_embedding = self._embed_query(query)
+        return self.index.query(query_embedding.tolist(), namespace="semanticscholar-metadata", top_k=top_k, include_metadata=True)
+    
+    def _map_metadata(self, metadata):
+        return PaperSearchResult(
+            paperId=metadata["paperId"],
+            title=metadata["title"],
+            citationCount=metadata["citationCount"],
+            year=metadata["year"],
+            authors=None,
+            venue=None,
+            abstract=None,
+            openAccessPdf=None
+        )
+
+    def citation_count_search(
+        self, query: str, year: str | None
+    ) -> List[PaperSearchResult]:
+        papers = self._query_index(query)
+        papers = [self._map_metadata(paper) for paper in papers]
+        papers = sorted(papers, key=lambda x: x.citationCount, reverse=True)
+        return papers
+    
+    def __call__(self, query: str, year: str | None = None) -> List[PaperSearchResult]:
+        papers = self._query_index(query)
+        papers = [self._map_metadata(paper) for paper in papers]
+        return papers

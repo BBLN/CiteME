@@ -11,6 +11,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from retriever.search_provider import (
+    RAGProvider,
     SemanticScholarSearchProvider,
     PaperSearchResult,
     SemanticScholarWebSearchProvider,
@@ -78,7 +79,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         temperature=DEFAULT_TEMPERATURE,
         search_limit=10,
         only_open_access=True,
-        use_web_search=False,
+        search_provider: str | None,
         prompt_name: str = "default",
         pydantic_object: Type[Output] | Type[OutputSearchOnly] = Output,
     ) -> None:
@@ -89,11 +90,13 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         self.model = get_model_by_name(model_name, temperature=temperature)
         print("Using model:", self.model)
         self.parser = PydanticOutputParser(pydantic_object=pydantic_object)
-        if use_web_search:
+        if search_provider == "SemanticScholarWebSearchProvider":
             self.search_provider = SemanticScholarWebSearchProvider(
                 limit=search_limit, only_open_access=only_open_access
             )
             self.search_provider.s2api.warmup()
+        elif search_provider == "RAGProvider":
+            self.search_provider = RAGProvider()
         else:
             self.search_provider = SemanticScholarSearchProvider(
                 limit=search_limit, only_open_access=only_open_access
@@ -171,7 +174,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
             #papers_str += "\nNow try other query searching by citations / relevance for best accuracy!"
         self.history.append(HumanMessage(content=papers_str.strip()))
         return HumanMessage(content=f"You should try validating with another query searching by citations / relevance for best accuracy!\n" \
-                            "Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}\n\n" \
+                            f"Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}\n\n" \
                             "You must try new action or change the search terms! You can use only single JSON action without any other text. More than one JSON is invalid and will be ignored.\n" \
                             f"You should try {"search_citation_count" if prev_action == "search_relevance" else "search_relevance"} next time.")
                             #"Respond with *exactly* one JSON action. Try different action or change the search terms!")

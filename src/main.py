@@ -22,7 +22,8 @@ parser = argparse.ArgumentParser(description="Run few-shot search on CiteMe data
 parser.add_argument("--prompt_name", type=str, default="one_shot_search", help="Prompt template")
 parser.add_argument("--result_file", type=str, default="few-shot-search-4o.json")
 parser.add_argument("--max_actions", type=int, default=15)
-parser.add_argument("--selenium", action="store_true", default=False)
+parser.add_argument("--search_provider", type=str, default="SemanticScholarSearchProvider", choices=[
+    "SemanticScholarSearchProvider", "SemanticScholarWebSearchProvider", "RAGProvider"])
 parser.add_argument("--model", type=str, default="phi")
 args = parser.parse_args()
 
@@ -34,9 +35,6 @@ TITLE_SEPERATOR = "[TITLE_SEPARATOR]"
 RESULT_FILE_NAME = args.result_file
 INCREMENTAL_SAVE = True
 
-search_provider = "SemanticScholarSearchProvider"
-if args.selenium:
-    search_provider = "SemanticScholarWebSearchProvider"
 metadata = {
     "model": args.model,
     "temperature": DEFAULT_TEMPERATURE,
@@ -49,7 +47,6 @@ metadata = {
     "execution_date": datetime.now().isoformat(),
     "only_open_access": False,
     "dataset_split": "all",
-    "use_web_search": False,
     "max_actions": args.max_actions,
 }
 # -- NO USER EDITABLE CODE BELOW THIS LINE --
@@ -82,7 +79,6 @@ if metadata["executor"] == "LLMSelfAskAgentPydantic":
         search_limit=metadata["search_limit"],
         model_name=metadata["model"],
         temperature=metadata["temperature"],
-        use_web_search=metadata["use_web_search"],
         prompt_name=metadata["prompt_name"],
         pydantic_object=pdo,
     )
