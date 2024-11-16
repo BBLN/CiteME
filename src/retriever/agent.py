@@ -76,19 +76,21 @@ class LLMSelfAskAgentPydantic(BaseAgent):
     def __init__(
         self,
         model_name: str,
+        peft_adapter=None,
         temperature=DEFAULT_TEMPERATURE,
         search_limit=10,
         only_open_access=True,
         search_provider: str | None,
         prompt_name: str = "default",
         pydantic_object: Type[Output] | Type[OutputSearchOnly] = Output,
+        generation_kwargs=None,
     ) -> None:
         self.search_with_year = False
         self.prompt_template_path = self.prompts[prompt_name][0]
         self.human_intro = self.human_intros[self.prompts[prompt_name][1]]
         self.model_name = model_name.lower()
-        self.model = get_model_by_name(model_name, temperature=temperature)
-        print("Using model:", self.model)
+        self.model = get_model_by_name(model_name, peft_adapter=peft_adapter, temperature=temperature, generation_kwargs=generation_kwargs)
+        print("Using model:", self.model, "adapter", peft_adapter)
         self.parser = PydanticOutputParser(pydantic_object=pydantic_object)
         if search_provider == "SemanticScholarWebSearchProvider":
             self.search_provider = SemanticScholarWebSearchProvider(
@@ -105,7 +107,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         self.reset()
 
     def format_instructions(self):
-        return f"You can use any of the following actions up to {self.max_actions} times:\n" \
+        return f"You can use any of the following actions up to {self.max_actions-1} times:\n" \
                 'Search by relevance: {"reason": "why", "action": {"name": "search_relevance": "query": "search terms"}}\n' \
                 'Search by citation count: {"reason": "why", "action": {"name": "search_citation_count": "query": "search terms"}}\n' \
                 'Select cited paper: {"reason": "why", "action": {"name": "select_paper", "paper_id": "paper ID"}}\n' \
@@ -167,7 +169,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
                 papers_str += f"\tAbstract: {paper.abstract[:256]}\n"
             papers_str += f"\tCitation Count: {paper.citationCount}\n\n"
         if len(papers) == 0:
-            papers_str = f"No papers were found for the given search query. You can try different query or action like relevance or citation search. Your'e encouraged to try new terms. Reminder, the excerpt was {self.current_excerpt}\n\nStart with broader terms and then narrow down if needed."
+            papers_str = f"No papers were found for the given search query. You must try different query or action like relevance or citation search. Your'e encouraged to try new terms. Reminder, the excerpt was {self.current_excerpt}\n\nStart with broader terms and then narrow down if needed."
         else:
             papers_str = f"Here are the papers found for the given search query:\n\n" + papers_str
             #papers_str += f'Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}'
@@ -176,7 +178,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         return HumanMessage(content=f"You should try validating with another query searching by citations / relevance for best accuracy!\n" \
                             f"Can you find the paper cited in the excerpt? Reminder, excerpt is\n\n{self.current_excerpt}\n\n" \
                             "You must try new action or change the search terms! You can use only single JSON action without any other text. More than one JSON is invalid and will be ignored.\n" \
-                            f"You should try {"search_citation_count" if prev_action == "search_relevance" else "search_relevance"} next time.")
+                            f'You also need to try {"search_citation_count" if prev_action == "search_relevance" else "search_relevance"} now. Final decision will only be made later with select_paper.')
                             #"Respond with *exactly* one JSON action. Try different action or change the search terms!")
 
     def _read(self, paper_id: str):
@@ -216,7 +218,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
                     'Action format: {"reason": "why", "action": {"name": "select_paper", "paper_id": "paper ID"}}'
                 )
             )
-        prompt_prefix = '{"reason":'
+        prompt_prefix = '' #'{"reason":'
         prompt = ChatPromptTemplate.from_messages(self.history + [AIMessage(content=prompt_prefix)])
         pipeline = prompt | self.model
         response: BaseMessage = pipeline.invoke({})
@@ -245,7 +247,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         for i in range(max_actions):
             response = self._ask_llm(message, last_action=(i == max_actions - 1))
             if response is None:
-                message = HumanMessage(content="The response could not be parsed, please try a valid JSON action.")
+                message = HumanMessage(content=f"The response could not be parsed, please try a valid JSON action. Reminder, output only valid JSON object with no other text, format:\n{self.format_instructions()}")
             elif response.action.name == "search_relevance":
                 message = self._search_relevance(response.action.query, year)
             elif response.action.name == "search_citation_count":

@@ -6,10 +6,11 @@ from langchain_together import ChatTogether
 from langchain_huggingface import ChatHuggingFace, HuggingFacePipeline
 from transformers import BitsAndBytesConfig, AutoTokenizer, AutoModelForCausalLM, pipeline
 from peft import PeftConfig, PeftModel
+from unsloth import FastLanguageModel
 
 DEFAULT_TEMPERATURE = 0.95
 
-def get_model_by_name(model_name: str, temperature: float = DEFAULT_TEMPERATURE):
+def get_model_by_name(model_name: str, peft_adapter=None, temperature: float = DEFAULT_TEMPERATURE, generation_kwargs=None):
     if model_name.startswith("gpt-") or model_name.startswith("o1-"):
         return ChatOpenAI(model=model_name, temperature=temperature)
         # return AzureOpenAI(model=model_name, temperature=temperature)
@@ -29,25 +30,32 @@ def get_model_by_name(model_name: str, temperature: float = DEFAULT_TEMPERATURE)
         )
         
         model_id="microsoft/Phi-3.5-mini-instruct"
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        #tokenizer = AutoTokenizer.from_pretrained(model_id)
 
         model_kwargs = {}
+        load_in_4bit = None
         if '4bit' in model_name:
             model_kwargs['quantization_config'] = quantization_config
+            load_in_4bit = True
 
-        model = AutoModelForCausalLM.from_pretrained(
-            model_id, 
-            **model_kwargs)
-        if 'peft' in model_name:
-            model = PeftModel.from_pretrained(model, "../NLP-project/lora-query-generator-microsoft-phi-3.5-mini-instruct_20241111_100543")
+        #model = AutoModelForCausalLM.from_pretrained(
+        #    model_id,
+        #    **model_kwargs)
+        #if peft_adapter:
+        #    model = PeftModel.from_pretrained(model, "../NLP-project/" + peft_adapter)
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name=f"../NLP-project/sft_outputs/{peft_adapter}" if peft_adapter else "unsloth/Phi-3.5-mini-instruct",
+            load_in_4bit=load_in_4bit)
+        FastLanguageModel.for_inference(model)
         pipe = pipeline(
-            "text-generation", 
-            model=model, 
+            "text-generation",
+            model=model,
             tokenizer=tokenizer,
             max_new_tokens=512,
-            do_sample=True,
-            top_p=0.6,
+            do_sample=False,
+            #top_p=0.6,
             return_full_text=False,
+            **(generation_kwargs or {})
         )
         llm = HuggingFacePipeline(pipeline=pipe)
 

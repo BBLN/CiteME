@@ -13,6 +13,16 @@ We should search for "LPIPS metric":
     }
 }
 
+or
+
+{
+    "reason": "find specific use case, MSE with LPSIS, search by relevance",
+    "action": {
+        "name": "search_relevance",
+        "query": "LPIPS MSE"
+    }
+}
+
 Only respond with single line JSON, keep the reason short and consice. Avoid any punctation in query, especially periods and hyphens.
 Rare terms like LPIPS usually gives more focused search results. You can try multiple searches, when you ready to select use the select paper action.
 Answer with exactly one JSON action without any other text.

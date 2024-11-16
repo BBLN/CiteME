@@ -25,7 +25,13 @@ parser.add_argument("--max_actions", type=int, default=15)
 parser.add_argument("--search_provider", type=str, default="SemanticScholarSearchProvider", choices=[
     "SemanticScholarSearchProvider", "SemanticScholarWebSearchProvider", "RAGProvider"])
 parser.add_argument("--model", type=str, default="phi")
+parser.add_argument("--peft_adapter", type=str)
+parser.add_argument("--top_p", type=float)
 args = parser.parse_args()
+
+generation_kwargs = {}
+if args.top_p:
+    generation_kwargs.update(dict(do_sample=True, top_p=args.top_p))
 
 slurm_job_id = os.environ.get("SLURM_JOB_ID")
 run = wandb.init(project="CiteME", config=args, group=f"{slurm_job_id}")
@@ -37,6 +43,7 @@ INCREMENTAL_SAVE = True
 
 metadata = {
     "model": args.model,
+    "peft_adapter": args.peft_adapter,
     "temperature": DEFAULT_TEMPERATURE,
     "executor": "LLMSelfAskAgentPydantic",
     "search_provider": search_provider,
@@ -78,9 +85,11 @@ if metadata["executor"] == "LLMSelfAskAgentPydantic":
         only_open_access=metadata["only_open_access"],
         search_limit=metadata["search_limit"],
         model_name=metadata["model"],
+        peft_adapter=metadata["peft_adapter"],
         temperature=metadata["temperature"],
         prompt_name=metadata["prompt_name"],
         pydantic_object=pdo,
+        generation_kwargs=generation_kwargs,
     )
 elif metadata["executor"] == "LLMNoSearch":
     metadata["actions"] = None
