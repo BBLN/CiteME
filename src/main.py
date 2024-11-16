@@ -46,7 +46,7 @@ metadata = {
     "peft_adapter": args.peft_adapter,
     "temperature": DEFAULT_TEMPERATURE,
     "executor": "LLMSelfAskAgentPydantic",
-    "search_provider": search_provider,
+    "search_provider": args.search_provider,
     "prompt_name": args.prompt_name,  # See prompt names in retriever/prompt_templates
     "actions": "search_relevance,search_citation_count,select",
     "search_limit": 10,
