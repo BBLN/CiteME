@@ -22,19 +22,22 @@ parser = argparse.ArgumentParser(description="Run few-shot search on CiteMe data
 parser.add_argument("--prompt_name", type=str, default="one_shot_search", help="Prompt template")
 parser.add_argument("--result_file", type=str, default="few-shot-search-4o.json")
 parser.add_argument("--max_actions", type=int, default=15)
-parser.add_argument("--search_provider", type=str, default="SemanticScholarSearchProvider", choices=[
-    "SemanticScholarSearchProvider", "SemanticScholarWebSearchProvider", "RAGProvider"])
+parser.add_argument("--search_provider", type=str, default="SemanticScholarSearchProvider")
+#, choices=[   "SemanticScholarSearchProvider", "SemanticScholarWebSearchProvider", "RAGProvider"])
 parser.add_argument("--model", type=str, default="phi")
 parser.add_argument("--peft_adapter", type=str)
 parser.add_argument("--top_p", type=float)
+parser.add_argument("--search_with_year", action='store_true', default=False)
 args = parser.parse_args()
 
 generation_kwargs = {}
 if args.top_p:
     generation_kwargs.update(dict(do_sample=True, top_p=args.top_p))
+else:
+    generation_kwargs.update(dict(do_sample=False))
 
 slurm_job_id = os.environ.get("SLURM_JOB_ID")
-run = wandb.init(project="CiteME", config=args, group=f"{slurm_job_id}")
+run = wandb.init(project="CiteME", config=args, group=f"{slurm_job_id}", tags=["final", "2024-11-17"])
 
 # -- Modify the following variables as needed --
 TITLE_SEPERATOR = "[TITLE_SEPARATOR]"
@@ -55,6 +58,7 @@ metadata = {
     "only_open_access": False,
     "dataset_split": "all",
     "max_actions": args.max_actions,
+    "search_with_year": args.search_with_year,
 }
 # -- NO USER EDITABLE CODE BELOW THIS LINE --
 
@@ -86,10 +90,12 @@ if metadata["executor"] == "LLMSelfAskAgentPydantic":
         search_limit=metadata["search_limit"],
         model_name=metadata["model"],
         peft_adapter=metadata["peft_adapter"],
+        search_provider=metadata["search_provider"],
         temperature=metadata["temperature"],
         prompt_name=metadata["prompt_name"],
         pydantic_object=pdo,
         generation_kwargs=generation_kwargs,
+        search_with_year=metadata["search_with_year"],
     )
 elif metadata["executor"] == "LLMNoSearch":
     metadata["actions"] = None

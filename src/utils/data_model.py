@@ -15,7 +15,7 @@ class OpenAccessPdf(BaseModel):
 class PaperSearchResult(BaseModel):
     paperId: str | None
     title: str
-    authors: List[PaperAuthor]
+    authors: List[PaperAuthor] | None
     abstract: str | None
     venue: str | None
     year: int | None

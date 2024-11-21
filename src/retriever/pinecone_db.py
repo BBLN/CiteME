@@ -1,4 +1,4 @@
-from api_keys import PINECONE_API_KEY
+from retriever.api_keys import PINECONE_API_KEY
 from pinecone.grpc import PineconeGRPC as Pinecone
 from pinecone import ServerlessSpec
 import time
