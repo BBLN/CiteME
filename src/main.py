@@ -27,6 +27,7 @@ parser.add_argument("--search_provider", type=str, default="SemanticScholarSearc
 parser.add_argument("--model", type=str, default="phi")
 parser.add_argument("--peft_adapter", type=str)
 parser.add_argument("--top_p", type=float)
+parser.add_argument("--executor", type=str, default="LLMSelfAskAgentPydantic")
 args = parser.parse_args()
 
 generation_kwargs = {}
@@ -45,7 +46,7 @@ metadata = {
     "model": args.model,
     "peft_adapter": args.peft_adapter,
     "temperature": DEFAULT_TEMPERATURE,
-    "executor": "LLMSelfAskAgentPydantic",
+    "executor": args.executor,
     "search_provider": args.search_provider,
     "prompt_name": args.prompt_name,  # See prompt names in retriever/prompt_templates
     "actions": "search_relevance,search_citation_count,select",

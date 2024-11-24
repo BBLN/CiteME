@@ -80,7 +80,7 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         temperature=DEFAULT_TEMPERATURE,
         search_limit=10,
         only_open_access=True,
-        search_provider: str | None,
+        search_provider: str | None = "SemanticScholarSearchProvider",
         prompt_name: str = "default",
         pydantic_object: Type[Output] | Type[OutputSearchOnly] = Output,
         generation_kwargs=None,
@@ -281,6 +281,7 @@ class LLMNoSearch(BaseAgent):
         prompt_name: str = "zero_shot_no_search",
     ):
         self.model = get_model_by_name(model_name, temperature=temperature)
+        self.model_name = model_name.lower()
         self.paper_buffer: List[List[PaperSearchResult]] = []
         self.prompt_template_path = self.prompts[prompt_name]
         self.reset()
@@ -294,17 +295,17 @@ class LLMNoSearch(BaseAgent):
     def get_paper_buffer(self):
         return []
 
-    def reset(self, source_papers_title: List[str] = []):
+    def reset(self, source_papers_title: List[str] = [], max_actions=5):
         with open(self.prompt_template_path, "r") as f:
             system_prompt = f.read()
-        if isinstance(self.model, ChatOpenAI) and self.model.model_name.startswith('o1'):
+        if (isinstance(self.model, ChatOpenAI) and self.model.model_name.startswith('o1')) or self.model_name.startswith('phi'):
             self.history = [HumanMessage(content=system_prompt)]
         else:
             self.history = [SystemMessage(content=system_prompt)]
 
     def __call__(self, excerpt: str, year: str = "", max_actions=5):
         message = HumanMessage(
-            content="You are now given an excerpt. Find me the paper cited in the excerpt. You have f{max_actions} action tokens, then you must select paper ID.\n\n"
+            content="You are now given an excerpt. Find me the paper cited in the excerpt. Only return the paper title, nothing else.\n\n"
             + f"{excerpt}"
         )
         response = self._ask_llm(message)
