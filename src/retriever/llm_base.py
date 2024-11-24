@@ -43,16 +43,25 @@ def get_model_by_name(model_name: str, peft_adapter=None, temperature: float = D
         #    **model_kwargs)
         #if peft_adapter:
         #    model = PeftModel.from_pretrained(model, "../NLP-project/" + peft_adapter)
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=f"../NLP-project/sft_outputs/{peft_adapter}" if peft_adapter else "unsloth/Phi-3.5-mini-instruct",
-            load_in_4bit=load_in_4bit)
-        FastLanguageModel.for_inference(model)
+        if peft_adapter == 'none':
+            peft_adapter = None
+
+        if False:
+            model, tokenizer = FastLanguageModel.from_pretrained(
+               model_name=f"../NLP-project/{peft_adapter}" if peft_adapter else "unsloth/Phi-3.5-mini-instruct",
+               load_in_4bit=load_in_4bit)
+            FastLanguageModel.for_inference(model)
+        else:
+            model_id="microsoft/Phi-3.5-mini-instruct"
+            model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
+            tokenizer = AutoTokenizer.from_pretrained(model_id)
+            if peft_adapter:
+                model = PeftModel.from_pretrained(model, "../NLP-project/" + peft_adapter)
         pipe = pipeline(
             "text-generation",
             model=model,
             tokenizer=tokenizer,
             max_new_tokens=512,
-            do_sample=False,
             #top_p=0.6,
             return_full_text=False,
             **(generation_kwargs or {})

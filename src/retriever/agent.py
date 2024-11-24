@@ -80,17 +80,18 @@ class LLMSelfAskAgentPydantic(BaseAgent):
         temperature=DEFAULT_TEMPERATURE,
         search_limit=10,
         only_open_access=True,
-        search_provider: str | None = "SemanticScholarSearchProvider",
+        search_provider: str | None = None,
         prompt_name: str = "default",
         pydantic_object: Type[Output] | Type[OutputSearchOnly] = Output,
+        search_with_year: bool = False,
         generation_kwargs=None,
     ) -> None:
-        self.search_with_year = False
+        self.search_with_year = search_with_year
         self.prompt_template_path = self.prompts[prompt_name][0]
         self.human_intro = self.human_intros[self.prompts[prompt_name][1]]
         self.model_name = model_name.lower()
         self.model = get_model_by_name(model_name, peft_adapter=peft_adapter, temperature=temperature, generation_kwargs=generation_kwargs)
-        print("Using model:", self.model, "adapter", peft_adapter)
+        print("Using model:", self.model, "adapter", peft_adapter, "search provider", search_provider)
         self.parser = PydanticOutputParser(pydantic_object=pydantic_object)
         if search_provider == "SemanticScholarWebSearchProvider":
             self.search_provider = SemanticScholarWebSearchProvider(

@@ -1,8 +1,8 @@
 from utils.semantic_scholar import SemanticScholarAPI, SemanticScholarWebSearch
 from utils import PaperSearchResult
 from typing import List
-from pinecone_db import get_pinecone_client, get_or_create_index
-from specter_embedding import Specter2AdhocQuery
+from retriever.pinecone_db import get_pinecone_client, get_or_create_index
+from retriever.specter_embedding import Specter2AdhocQuery
 
 class SearchProvider:
     def __call__(self, search_term: str, year: str) -> List[PaperSearchResult]:
@@ -121,14 +121,14 @@ class SemanticScholarWebSearchProvider(SearchProvider):
 class RAGProvider(SearchProvider):
     def __init__(
         self,
-        index_name="semanticscholar-index-specter2-10-22-2024"
+        index_name="semanticscholar-index-specter2-11-16-2024"
     ):
         self.embedding_model = Specter2AdhocQuery()
         self.pc = get_pinecone_client()
         self.index = get_or_create_index(self.pc, index_name, self.embedding_model.embedding_dim())
 
     def _embed_query(self, query: str):
-        return self.embedding_model.embed(query).squeeze()
+        return self.embedding_model.embed_parallel([query]).squeeze()
     
     def _query_index(self, query: str, top_k: int = 10):
         query_embedding = self._embed_query(query)
@@ -140,21 +140,21 @@ class RAGProvider(SearchProvider):
             title=metadata["title"],
             citationCount=metadata["citationCount"],
             year=metadata["year"],
-            authors=None,
+            authors=[],
             venue=None,
-            abstract=None,
+            abstract=metadata['abstract'] if 'abstract' in metadata else None,
             openAccessPdf=None
         )
 
     def citation_count_search(
         self, query: str, year: str | None
     ) -> List[PaperSearchResult]:
-        papers = self._query_index(query)
-        papers = [self._map_metadata(paper) for paper in papers]
+        papers = self._query_index(query, 50)
+        papers = [self._map_metadata(paper['metadata']) for paper in papers['matches']]
         papers = sorted(papers, key=lambda x: x.citationCount, reverse=True)
-        return papers
+        return papers[:10]
     
     def __call__(self, query: str, year: str | None = None) -> List[PaperSearchResult]:
         papers = self._query_index(query)
-        papers = [self._map_metadata(paper) for paper in papers]
+        papers = [self._map_metadata(paper['metadata']) for paper in papers['matches']]
         return papers

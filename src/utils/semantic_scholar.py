@@ -28,7 +28,7 @@ class SemanticScholarAPI:
     
     @retry(
         retry=retry_if_exception_type(HTTPRateLimitException),
-        stop=stop_after_attempt(5), 
+        stop=stop_after_attempt(7), 
         wait=wait_fixed(20)
     )
     def _get(self, *args, **kwargs):

@@ -1,3 +1,4 @@
+import transformers
 from transformers import AutoTokenizer
 from adapters import AutoAdapterModel
 
@@ -24,7 +25,7 @@ class Specter2AdhocQuery(EmbeddingWrapper):
         tokenizer = AutoTokenizer.from_pretrained('allenai/specter2_base')
         model = AutoAdapterModel.from_pretrained('allenai/specter2_base')
         model.load_adapter("allenai/specter2_adhoc_query", source="hf", load_as="specter2_adhoc_query", set_active=True)
-
+        print(model.device)
         super().__init__(model, tokenizer)
 
     def embedding_model(self):
